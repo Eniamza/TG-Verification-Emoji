@@ -1,0 +1,12 @@
+{
+  "emojis": [
+    "😊",
+    "🍾",
+    "🥸",
+    "🍷",
+    "🥖"
+  ],
+  "verificationTimeout": 60000,
+  "is2faEnabled": true,
+  "botToken": ""
+}
