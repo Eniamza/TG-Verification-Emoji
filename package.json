@@ -10,9 +10,6 @@
   "license": "ISC",
   "dependencies": {
     "lowdb": "^1.0.0",
-    "node-telegram-bot-api": "^0.30.0"
-  },
-  "volta": {
-    "node": "14.21.3"
+    "node-telegram-bot-api": "^0.61.0"
   }
 }
