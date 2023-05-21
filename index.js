@@ -1,7 +1,8 @@
 const TelegramBot = require("node-telegram-bot-api");
 const configService = require("./config");
 
-global.members = {};
+var members = {};
+var chatDb = {};
 
 (async () => {
 	const ldb = await configService();
@@ -35,6 +36,8 @@ global.members = {};
 
 		const memberName =
 			msg.from.username || `${msg.from.first_name} ${msg.from.last_name}`;
+
+		const mentionUser = `[${memberName}](tg://user?id=${msg.from.id})`;
 
 		let emojis = (await ldb.read()).get("emojis").value();
 		emojis = (emojis || []).map((i, idx) => ({ emoji: i, index: idx }));
@@ -83,12 +86,17 @@ global.members = {};
 		let emojis = (await ldb.read()).get("emojis").value();
 		emojis = (emojis || []).map((i, idx) => ({ emoji: i, index: idx }));
 
-		if (query.data.startsWith("verify-")) {
+		if (query.data.startsWith("verify-") && !members[query.data]) {
 			const __emoji = query.data.split("-")[1].split("_")[0] || "";
 			const __user = query.data.split("_")[1] || "";
 			const chatId = query.message.chat.id;
 
+			const uid = `${chatId}+${__user}`;
+			if (members[uid]) return;
+			members[uid] = true; // to avoid multiple taps on button
+
 			if (query.from.id != __user) {
+				delete members[uid];
 				await bot.answerCallbackQuery(query.id, {
 					text: "This message is not for you 🙃",
 					show_alert: true,
@@ -96,7 +104,7 @@ global.members = {};
 				return;
 			}
 
-			clearInterval(global.members[__user]);
+			clearInterval(members[__user]);
 
 			if (emojis[0].index != __emoji) {
 				await bot.answerCallbackQuery(query.id, {
@@ -104,21 +112,24 @@ global.members = {};
 					show_alert: true,
 				});
 
-				await bot.deleteMessage(
-					query.message.chat.id,
-					query.message.message_id
-				);
+				await bot
+					.deleteMessage(query.message.chat.id, query.message.message_id)
+					.catch(() => {});
 				// Kick the user from the group
-				await bot.banChatMember(chatId, __user);
-				console.log("USER KICKED, REASON: INCORRECT_VERIFICATION_ANSWER");
+				await bot
+					.banChatMember(chatId, __user)
+					.then(() =>
+						console.log("USER KICKED, REASON: INCORRECT_VERIFICATION_ANSWER")
+					)
+					.catch(() => {});
 
-				// Unban the user after 5 seconds
-				setTimeout(() => {
-					bot
-						.unbanChatMember(chatId, __user)
-						.then(() => console.log("USER UNBAN ✅"));
-				}, 5 * 1000);
+				// Unban the user
+				bot
+					.unbanChatMember(chatId, __user)
+					.then(() => console.log("USER UNBAN ✅"))
+					.catch(() => {});
 
+				delete members[uid];
 				return;
 			}
 
@@ -131,6 +142,8 @@ global.members = {};
 					can_add_web_page_previews: true,
 				})
 				.then(() => console.log("::USER VERIFIED ✅::"));
+
+			delete members[uid];
 		}
 	});
 
@@ -158,7 +171,7 @@ global.members = {};
 			(await ldb.read()).get("verificationTimeout").value() || 10000;
 
 		let count = verificationTimeout / 1000 || 10;
-		global.members[userId] = setInterval(() => {
+		members[userId] = setInterval(() => {
 			count -= 1;
 			bot
 				.editMessageText(`${text} (${count})`, {
@@ -169,8 +182,12 @@ global.members = {};
 				.catch(() => {})
 				.finally(() => {
 					if (count <= 0) {
-						clearInterval(global.members[userId]);
-						kickDeleteMsgAndKickUser(chatId, messageId, userId);
+						clearInterval(members[userId]);
+						const messageUUID = `${chatId},${messageId},${userId}`;
+						if (!chatDb[messageUUID]) {
+							chatDb[messageUUID] = true;
+							kickDeleteMsgAndKickUser(chatId, messageId, userId);
+						}
 					}
 				});
 		}, 1000);
@@ -182,15 +199,14 @@ global.members = {};
 			.catch(() => {})
 			.finally(async () => {
 				// Kick the user from the group
-				await bot.banChatMember(chatId, userId);
-				console.log("USER KICKED, REASON: VERFICATION_TIMEOUT");
+				await bot
+					.banChatMember(chatId, userId)
+					.then(() => console.log("USER KICKED, REASON: VERFICATION_TIMEOUT"));
 
-				// Unban the user after 5 seconds
-				setTimeout(() => {
-					bot
-						.unbanChatMember(chatId, userId)
-						.then(() => console.log("USER UNBAN ✅"));
-				}, 5 * 1000);
+				// Unban the user
+				bot
+					.unbanChatMember(chatId, userId)
+					.then(() => console.log("USER UNBAN ✅"));
 			});
 	}
 })();
