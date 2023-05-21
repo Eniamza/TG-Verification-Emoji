@@ -56,7 +56,7 @@ var chatDb = {};
 		Chart (DexTools):
 		Contract address:
 		
-		Press 🥞to prove that you're a sophisticated Monsieur/ Madame and not a dégénérer Merde de JEET!`;
+		Press 😊to prove that you're a sophisticated Monsieur/ Madame and not a dégénérer Merde de JEET!`;
 		const messageOptions = {
 			reply_markup: {
 				inline_keyboard: [

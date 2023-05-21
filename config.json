@@ -6,7 +6,7 @@
     "🍷",
     "🥖"
   ],
-  "verificationTimeout": 60000,
+  "verificationTimeout": 20000,
   "is2faEnabled": true,
   "botToken": ""
 }
